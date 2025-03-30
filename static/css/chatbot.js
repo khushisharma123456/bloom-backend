@@ -1,0 +1,243 @@
+const API_KEY = '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'
+
+// Initialize content area and input fields
+document.addEventListener('DOMContentLoaded', function() {
+    // Get elements after DOM is fully loaded
+    const content = document.getElementById('content');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.querySelector('.send-button');
+
+    let isAnswerLoading = false;
+    let answerSectionId = 0;
+
+    // Add event listeners
+    sendButton.addEventListener('click', function() {
+        sendMessage();
+    });
+
+    userInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // Copy button functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.copy-button') || e.target.closest('.fa-copy')) {
+            const textToCopy = e.target.closest('.ai-prompt').querySelector('#first').textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('Text copied to clipboard');
+            });
+        }
+    });
+
+    // Function to send user message
+    window.sendMessage = function() {
+        const question = userInput.value.trim();
+
+        if (question === '' || isAnswerLoading) return;
+
+        // Add user message to chat
+        addUserMessage(question);
+        
+        // Clear input field
+        userInput.value = '';
+        
+        // Get AI response
+        isAnswerLoading = true;
+        answerSectionId++;
+        
+        // Add loading indicator
+        addAnswerSection();
+        
+        // Fetch response from API
+        getAnswer(question);
+    };
+
+    function addUserMessage(message) {
+        // Create the entire message with inline HTML including the icon
+        const messageHTML = `
+            <div class="up-down" style="display: flex; align-items: flex-start; width: 100%; margin-bottom: 10px;">
+                <div style="width: 35px; height: 35px; min-width: 35px; margin-right: 10px; margin-top: 15px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-user-circle" style="font-size: 35px; color: #000000;"></i>
+                </div>
+                <p id="second" style="margin: 0; word-wrap: break-word;">${message}</p>
+            </div>
+        `;
+        
+        // Add the HTML to the content
+        content.insertAdjacentHTML('beforeend', messageHTML);
+        scrollToBottom();
+    }
+
+    function addAnswerSection() {
+        // Main container that will take the full width
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'ai-prompt';
+        sectionDiv.id = `answer-${answerSectionId}`;
+        sectionDiv.style.width = '100%';
+        sectionDiv.style.display = 'flex';
+        sectionDiv.style.flexDirection = 'column';
+        
+        // White background container that will stretch to fit all content
+        const whiteContainer = document.createElement('div');
+        whiteContainer.className = 'white-container';
+        whiteContainer.style.backgroundColor = 'white';
+        whiteContainer.style.borderRadius = '8px';
+        whiteContainer.style.padding = '15px';
+        whiteContainer.style.width = '100%';
+        whiteContainer.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+        whiteContainer.style.marginBottom = '10px';
+        whiteContainer.style.position = 'relative'; // Added for positioning the copy button
+        
+        const upDiv = document.createElement('div');
+        upDiv.className = 'up';
+        upDiv.style.display = 'flex';
+        upDiv.style.alignItems = 'flex-start';
+        upDiv.style.width = '100%';
+        
+        const aiImg = document.createElement('img');
+        aiImg.src = 'static/Images/logo1.png'; // Make sure this file exists
+        aiImg.alt = 'ai-logo';
+        aiImg.className = 'ai-logo';
+        aiImg.style.marginRight = '10px';
+        aiImg.style.flexShrink = '0';
+        
+        const loadingIndicator = document.createElement('p');
+        loadingIndicator.id = 'first';
+        loadingIndicator.innerHTML = getLoadingSvg();
+        loadingIndicator.style.width = '100%';
+        loadingIndicator.style.margin = '0';
+        loadingIndicator.style.wordWrap = 'break-word';
+        loadingIndicator.style.whiteSpace = 'pre-wrap';
+        
+        upDiv.appendChild(aiImg);
+        upDiv.appendChild(loadingIndicator);
+        
+        // Create copy button inside the white container
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '<i class="fa-solid fa-copy"></i>Copy';
+        copyButton.style.position = 'absolute';
+        copyButton.style.bottom = '10px';
+        copyButton.style.right = '10px';
+        copyButton.style.backgroundColor = '#601893'; // Purple like in your image
+        copyButton.style.color = 'white';
+        copyButton.style.border = 'none';
+        copyButton.style.borderRadius = '4px';
+        copyButton.style.padding = '5px 10px';
+        copyButton.style.fontSize = '14px';
+        copyButton.style.cursor = 'pointer';
+        copyButton.style.display = 'flex';
+        copyButton.style.alignItems = 'center';
+        copyButton.style.gap = '5px';
+        
+        // Put the upDiv inside the white container
+        whiteContainer.appendChild(upDiv);
+        whiteContainer.appendChild(copyButton);
+        
+        // Add the white container to the main section
+        sectionDiv.appendChild(whiteContainer);
+        
+        content.appendChild(sectionDiv);
+        scrollToBottom();
+    }
+
+    function getAnswer(question) {
+        // Log the request for debugging
+        console.log("Sending request to API with question:", question);
+        
+        fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${API_KEY}`,
+                "HTTP-Referer": window.location.href, // Uses current site URL
+                "X-Title": "Bloom Chatbot", // Your site/app name
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "model": "mistralai/mistral-small-3.1-24b-instruct:free",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": question
+                            }
+                        ]
+                    }
+                ]
+            })
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`API Error (${response.status}): ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("API response data:", data);
+            // Validate response structure
+            if (!data || !data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+                throw new Error("Invalid response format from API");
+            }
+            
+            const resultData = data.choices[0].message.content;
+            updateAnswerSection(resultData);
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+            // Show more detailed error message
+            updateAnswerSection(`Error: ${error.message || "Unknown error occurred"}`);
+        })
+        .finally(() => {
+            isAnswerLoading = false;
+            scrollToBottom();
+        });
+    }
+
+    function updateAnswerSection(message) {
+        const answerSection = document.getElementById(`answer-${answerSectionId}`);
+        if (answerSection) {
+            const messageP = answerSection.querySelector('#first');
+            if (messageP) {
+                // Replace the loading animation with the actual message
+                messageP.innerHTML = message;
+                
+                // Force the container to expand with the content
+                const whiteContainer = answerSection.querySelector('.white-container');
+                if (whiteContainer) {
+                    whiteContainer.style.height = 'auto';
+                    whiteContainer.style.width = '100%';
+                    
+                    // Add some bottom padding to prevent text from being covered by the copy button
+                    whiteContainer.style.paddingBottom = '40px';
+                }
+            }
+        }
+    }
+
+    function getLoadingSvg() {
+        return `
+            <svg style="height:25px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <circle fill="#601893" stroke="#601893" stroke-width="15" r="15" cx="40" cy="65">
+                    <animate attributeName="cy" calcMode="spline" dur="2" values="65;135;65;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="-.4"></animate>
+                </circle>
+                <circle fill="#601893" stroke="#601893" stroke-width="15" r="15" cx="100" cy="65">
+                    <animate attributeName="cy" calcMode="spline" dur="2" values="65;135;65;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="-.2"></animate>
+                </circle>
+                <circle fill="#601893" stroke="#601893" stroke-width="15" r="15" cx="160" cy="65">
+                    <animate attributeName="cy" calcMode="spline" dur="2" values="65;135;65;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="0"></animate>
+                </circle>
+            </svg>
+        `;
+    }
+
+    function scrollToBottom() {
+        content.scrollTop = content.scrollHeight;
+    }
+});
